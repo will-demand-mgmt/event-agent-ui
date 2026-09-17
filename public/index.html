@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Event Agent</title>
+<style>
+  :root{
+    --bg:#15130e;
+    --bg-raised:#211c14;
+    --bg-inset:#0d0b08;
+    --line:#3c3524;
+    --line-soft:#2a2418;
+    --ink:#f4efe1;
+    --ink-dim:#b8ae97;
+    --ink-faint:#867d68;
+    --amber:#e7a23a;
+    --amber-soft:rgba(231,162,58,.14);
+    --blue:#74b8d6;
+    --danger:#c8604a;
+    --danger-soft:rgba(200,96,74,.16);
+    --font-display:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --font-mono:'IBM Plex Mono',ui-monospace,'SFMono-Regular',Menlo,monospace;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--ink);
+    font-family:var(--font-display);
+    display:flex;
+    flex-direction:column;
+  }
+  a{color:var(--amber);}
+  .topbar{
+    border-bottom:1px solid var(--line-soft);
+    padding:14px 20px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    flex-wrap:wrap;
+  }
+  .brand{font-family:var(--font-mono);font-size:13px;display:flex;align-items:center;gap:8px;}
+  .brand .dot{width:8px;height:8px;border-radius:50%;background:var(--amber);box-shadow:0 0 0 3px var(--amber-soft);}
+  .brand-sub{color:var(--ink-faint);font-size:12px;}
+  .companion-link{font-family:var(--font-mono);font-size:12px;color:var(--ink-faint);}
+
+  .layout{
+    flex:1;
+    display:grid;
+    grid-template-columns:300px 1fr;
+    min-height:0;
+  }
+  @media (max-width:760px){ .layout{grid-template-columns:1fr;} .settings{border-right:none;border-bottom:1px solid var(--line-soft);} }
+
+  .settings{
+    border-right:1px solid var(--line-soft);
+    padding:18px;
+    display:flex;
+    flex-direction:column;
+    gap:14px;
+    overflow-y:auto;
+  }
+  .field label{
+    display:block;
+    font-family:var(--font-mono);
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--ink-faint);
+    margin-bottom:6px;
+  }
+  .field select, .field input{
+    width:100%;
+    background:var(--bg-inset);
+    border:1px solid var(--line);
+    border-radius:6px;
+    color:var(--ink);
+    padding:9px 10px;
+    font-family:var(--font-mono);
+    font-size:13px;
+  }
+  .field select:focus, .field input:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:var(--amber);}
+  .field small{display:block;margin-top:6px;color:var(--ink-faint);font-size:11.5px;line-height:1.5;}
+  .field.warn input{border-color:var(--danger);}
+  .settings-note{
+    margin-top:auto;
+    font-size:11.5px;
+    color:var(--ink-faint);
+    border-top:1px solid var(--line-soft);
+    padding-top:14px;
+    line-height:1.6;
+  }
+
+  .chat-col{display:flex;flex-direction:column;min-height:0;}
+  .messages{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:14px;}
+  .msg{max-width:70ch;}
+  .msg .who{font-family:var(--font-mono);font-size:11px;color:var(--ink-faint);margin-bottom:4px;letter-spacing:.04em;}
+  .msg.user{align-self:flex-end;}
+  .msg.user .who{text-align:right;}
+  .msg .bubble{
+    border-radius:10px;
+    padding:12px 14px;
+    font-size:14.5px;
+    line-height:1.55;
+    white-space:pre-wrap;
+  }
+  .msg.assistant .bubble{background:var(--bg-raised);border:1px solid var(--line-soft);}
+  .msg.assistant .who{color:var(--amber);}
+  .msg.user .bubble{background:var(--amber-soft);border:1px solid var(--amber);color:var(--ink);}
+  .msg.error .bubble{background:var(--danger-soft);border:1px solid var(--danger);}
+  .msg.pending .bubble{color:var(--ink-faint);font-style:italic;}
+
+  .composer{
+    border-top:1px solid var(--line-soft);
+    padding:14px 20px 18px;
+    display:flex;
+    gap:10px;
+  }
+  .composer textarea{
+    flex:1;
+    resize:none;
+    background:var(--bg-inset);
+    border:1px solid var(--line);
+    border-radius:8px;
+    color:var(--ink);
+    font-family:var(--font-display);
+    font-size:14.5px;
+    padding:11px 12px;
+    min-height:46px;
+    max-height:160px;
+  }
+  .composer textarea:focus{outline:2px solid var(--amber);outline-offset:1px;border-color:var(--amber);}
+  .send-btn{
+    font-family:var(--font-mono);
+    font-size:13px;
+    border:1px solid var(--amber);
+    background:var(--amber);
+    color:#1c1508;
+    font-weight:700;
+    border-radius:8px;
+    padding:0 18px;
+    cursor:pointer;
+  }
+  .send-btn:disabled{opacity:.5;cursor:default;}
+  .send-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px;}
+</style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div>
+      <div class="brand"><span class="dot" aria-hidden="true"></span> EVENT AGENT</div>
+      <div class="brand-sub">Talk to the Orchestrator role from the AI-Driven Event Management System concept.</div>
+    </div>
+    <div class="companion-link">Backend: event-agent (separate deployment) · Companion overview: scripted walkthrough (private artifact link)</div>
+  </header>
+
+  <div class="layout">
+    <aside class="settings">
+      <div class="field" id="endpointField">
+        <label for="apiEndpoint">API endpoint (event-agent)</label>
+        <input id="apiEndpoint" type="text" placeholder="https://event-agent.&lt;your-subdomain&gt;.workers.dev">
+        <small>Your deployed event-agent worker's base URL. Required — set once, saved in this browser.</small>
+      </div>
+      <div class="field">
+        <label for="provider">Provider</label>
+        <select id="provider">
+          <option value="anthropic">Anthropic (Claude)</option>
+          <option value="groq">Groq</option>
+          <option value="openrouter">OpenRouter</option>
+        </select>
+      </div>
+      <div class="field">
+        <label for="model">Model id</label>
+        <input id="model" type="text" placeholder="e.g. claude-sonnet-4-5">
+        <small>Check the provider's current model list before deploying — defaults here may be out of date.</small>
+      </div>
+      <div class="field">
+        <label for="apiKey">Provider API key</label>
+        <input id="apiKey" type="password" placeholder="sk-...">
+        <small>Stored only in this browser and sent per-request to event-agent, which forwards it to the provider. Never saved server-side.</small>
+      </div>
+      <div class="settings-note">
+        This is an R&amp;D concept evaluation tool, not a production system. It is not affiliated with, endorsed by, or produced in association with TED Conferences LLC or the TEDx program.
+      </div>
+    </aside>
+
+    <div class="chat-col">
+      <div class="messages" id="messages"></div>
+      <form class="composer" id="composer">
+        <textarea id="input" placeholder="Ask the Orchestrator about a scenario, or challenge a design choice…" rows="1"></textarea>
+        <button class="send-btn" id="sendBtn" type="submit">Send</button>
+      </form>
+    </div>
+  </div>
+
+<script>
+(function(){
+  "use strict";
+
+  var history = []; // {role:'user'|'assistant', content:string}
+  var messagesEl = document.getElementById('messages');
+  var form = document.getElementById('composer');
+  var input = document.getElementById('input');
+  var sendBtn = document.getElementById('sendBtn');
+  var endpointEl = document.getElementById('apiEndpoint');
+  var providerEl = document.getElementById('provider');
+  var modelEl = document.getElementById('model');
+  var apiKeyEl = document.getElementById('apiKey');
+
+  var DEFAULT_MODELS = {
+    anthropic: 'claude-sonnet-4-5',
+    groq: 'llama-3.3-70b-versatile',
+    openrouter: 'anthropic/claude-sonnet-4.5'
+  };
+
+  function loadSettings(){
+    try{
+      var saved = JSON.parse(localStorage.getItem('event-agent-ui-settings') || '{}');
+      if(saved.endpoint) endpointEl.value = saved.endpoint;
+      if(saved.provider) providerEl.value = saved.provider;
+      if(saved.model) modelEl.value = saved.model;
+      if(saved.apiKey) apiKeyEl.value = saved.apiKey;
+    }catch(e){ /* ignore — private window or blocked storage */ }
+    if(!modelEl.value){ modelEl.value = DEFAULT_MODELS[providerEl.value]; }
+  }
+
+  function saveSettings(){
+    try{
+      localStorage.setItem('event-agent-ui-settings', JSON.stringify({
+        endpoint: endpointEl.value,
+        provider: providerEl.value,
+        model: modelEl.value,
+        apiKey: apiKeyEl.value
+      }));
+    }catch(e){ /* ignore */ }
+  }
+
+  endpointEl.addEventListener('change', saveSettings);
+  providerEl.addEventListener('change', function(){
+    if(!modelEl.value || Object.values(DEFAULT_MODELS).indexOf(modelEl.value) !== -1){
+      modelEl.value = DEFAULT_MODELS[providerEl.value];
+    }
+    saveSettings();
+  });
+  modelEl.addEventListener('change', saveSettings);
+  apiKeyEl.addEventListener('change', saveSettings);
+
+  function addMessage(role, text, cls){
+    var wrap = document.createElement('div');
+    wrap.className = 'msg ' + role + (cls ? ' ' + cls : '');
+    var who = document.createElement('div');
+    who.className = 'who';
+    who.textContent = role === 'user' ? 'YOU' : (role === 'assistant' ? 'ORCHESTRATOR' : 'SYSTEM');
+    var bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    wrap.appendChild(who);
+    wrap.appendChild(bubble);
+    messagesEl.appendChild(wrap);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+    return wrap;
+  }
+
+  addMessage('assistant',
+    "I'm standing in for the Orchestrator from the AI-Driven Event Management System concept. " +
+    "Set the event-agent endpoint, a provider and your own API key on the left, then throw a " +
+    "scenario at me — a schedule clash, an edge case, a design choice you're unsure about. I'll " +
+    "reason about it in role, or step out of role if you want to talk product decisions directly."
+  );
+
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var text = input.value.trim();
+    if(!text) return;
+    var endpoint = endpointEl.value.trim().replace(/\/+$/, '');
+    if(!endpoint){
+      addMessage('system', 'Set the event-agent API endpoint on the left first.', 'error');
+      return;
+    }
+    if(!apiKeyEl.value){
+      addMessage('system', 'Add a provider API key on the left first — it never leaves your browser except to reach event-agent, which forwards it to the provider you picked.', 'error');
+      return;
+    }
+    addMessage('user', text);
+    history.push({role:'user', content:text});
+    input.value = '';
+    input.style.height = 'auto';
+    sendBtn.disabled = true;
+    var pending = addMessage('assistant', 'thinking…', 'pending');
+
+    fetch(endpoint + '/api/chat', {
+      method:'POST',
+      headers:{'content-type':'application/json'},
+      body: JSON.stringify({
+        provider: providerEl.value,
+        model: modelEl.value,
+        apiKey: apiKeyEl.value,
+        messages: history
+      })
+    })
+    .then(function(res){ return res.json().then(function(data){ return {ok:res.ok, data:data}; }); })
+    .then(function(r){
+      pending.remove();
+      if(!r.ok){
+        addMessage('system', (r.data && r.data.error) || 'Something went wrong.', 'error');
+        return;
+      }
+      var reply = (r.data && r.data.reply) || '(empty response)';
+      addMessage('assistant', reply);
+      history.push({role:'assistant', content:reply});
+    })
+    .catch(function(err){
+      pending.remove();
+      addMessage('system', 'Network error reaching event-agent: ' + err.message, 'error');
+    })
+    .finally(function(){ sendBtn.disabled = false; input.focus(); });
+  });
+
+  input.addEventListener('input', function(){
+    input.style.height = 'auto';
+    input.style.height = Math.min(input.scrollHeight, 160) + 'px';
+  });
+  input.addEventListener('keydown', function(e){
+    if(e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      form.requestSubmit();
+    }
+  });
+
+  loadSettings();
+})();
+</script>
+</body>
+</html>
